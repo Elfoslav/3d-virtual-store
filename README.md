@@ -1,46 +1,87 @@
-# Getting Started with Create React App
+# 🛍️ 3D Virtual Store
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+An interactive 3D shopping prototype built with React Three Fiber and Three.js.
+Walk around a virtual shop, browse shelves, and add products to your cart — powered by WebGL.
 
-## Available Scripts
+## ✨ Features
 
-In the project directory, you can run:
+🏬 Virtual Storefront — shelves, walls, and a walkable 3D environment.
 
-### `npm start`
+🎮 WASD Controls + Pointer Lock — move like in a first-person game.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+🛒 Cart System — pick products directly from shelves.
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+🎨 Textured Environment — floor, walls, shelves with realistic materials.
 
-### `npm test`
+💡 Dynamic Lighting & Shadows — immersive soft shadows and reflections.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+🔦 Product Highlighting — hover with crosshair to focus items.
 
-### `npm run build`
+🎥 Postprocessing Effects — SSAO + Bloom for cinematic look.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+🖼️ Demo (so far)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 🛠️ Tech Stack
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+React (UI & state management)
 
-### `npm run eject`
+React Three Fiber (3D rendering with Three.js in React)
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+@react-three/drei (camera controls, helpers)
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+@react-three/postprocessing (visual effects)
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+Three.js (WebGL engine under the hood)
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+## 🚀 Getting Started
 
-## Learn More
+1. Clone the repo:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```
+git clone https://github.com/your-username/3d-virtual-store.git
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+1.1 Enter the repo folder:
+
+```
+cd 3d-virtual-store
+```
+
+2. Install dependencies:
+
+```
+npm install
+```
+
+3. Run locally:
+
+```
+npm run dev
+```
+
+Then open 👉 http://localhost:3000
+in your browser.
+
+## 🎮 Controls
+
+WASD / Arrow Keys → Move around
+
+Shift → Sprint
+
+E → Pick up product
+
+Mouse → Look around (after clicking inside canvas to lock pointer)
+
+## 🗺️ Roadmap
+
+Add checkout UI
+
+Support 3D product models instead of cubes
+
+Backend integration for real products
+
+Shopify plugin
+
+### 📜 License
+
+MIT — free to use, share, and modify.
