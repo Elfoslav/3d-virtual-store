@@ -2,17 +2,30 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { PointerLockControls, PerspectiveCamera } from "@react-three/drei";
+import {
+	PointerLockControls,
+	PerspectiveCamera,
+	SoftShadows,
+	useTexture,
+} from "@react-three/drei";
+import { EffectComposer, SSAO, Bloom } from "@react-three/postprocessing";
 
+// --- Floor component with texture ---
 function Floor() {
+	const texture = useTexture("/textures/floor.jpeg"); // add a floor texture
+	texture.anisotropy = 4;
+	texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+	texture.repeat.set(10, 10);
+
 	return (
-		<mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
+		<mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
 			<planeGeometry args={[50, 50]} />
-			<meshStandardMaterial color="#dcdcdc" />
+			<meshStandardMaterial map={texture} roughness={0.8} />
 		</mesh>
 	);
 }
 
+// --- Wall component ---
 function Wall({
 	position,
 	rotation,
@@ -20,51 +33,74 @@ function Wall({
 	position: [number, number, number];
 	rotation?: [number, number, number];
 }) {
+	const texture = useTexture("/textures/wall.jpeg");
+	texture.anisotropy = 4;
+	texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+	texture.repeat.set(5, 1);
+
 	return (
 		<mesh position={position} rotation={rotation} castShadow receiveShadow>
 			<boxGeometry args={[50, 3, 0.2]} />
-			<meshStandardMaterial color="#f2f2f2" />
+			<meshStandardMaterial map={texture} roughness={0.9} />
 		</mesh>
 	);
 }
 
+// --- Shelf with wood texture ---
 function Shelf({ position }: { position: [number, number, number] }) {
+	const woodTexture = useTexture("/textures/wood-light.jpeg");
+	woodTexture.anisotropy = 4;
+	woodTexture.wrapS = woodTexture.wrapT = THREE.RepeatWrapping;
+	woodTexture.repeat.set(1, 1);
+
 	return (
 		<group position={position}>
-			{/* Back board */}
-			<mesh position={[0, 1, 0]}>
+			<mesh position={[0, 1, 0]} castShadow receiveShadow>
 				<boxGeometry args={[4, 2, 0.1]} />
-				<meshStandardMaterial color="#8b5a2b" />
+				<meshStandardMaterial map={woodTexture} roughness={0.6} />
 			</mesh>
-			{/* Shelves */}
 			{[0.5, 1.1, 1.7].map((y, i) => (
-				<mesh key={i} position={[0, y, 0.3]}>
+				<mesh key={i} position={[0, y, 0.3]} castShadow receiveShadow>
 					<boxGeometry args={[3.6, 0.1, 0.6]} />
-					<meshStandardMaterial color="#a46a32" />
+					<meshStandardMaterial map={woodTexture} roughness={0.6} />
 				</mesh>
 			))}
 		</group>
 	);
 }
 
+// --- Product with optional highlight ---
 function Product({
 	position,
 	color,
 	name,
+	highlight,
 }: {
 	position: [number, number, number];
 	color: string;
 	name: string;
+	highlight?: boolean;
 }) {
 	return (
-		<mesh position={position} userData={{ productName: name }}>
+		<mesh
+			position={position}
+			userData={{ productName: name }}
+			castShadow
+			receiveShadow
+		>
 			<boxGeometry args={[0.4, 0.4, 0.4]} />
-			<meshStandardMaterial color={color} />
+			<meshStandardMaterial
+				color={color}
+				roughness={0.4}
+				metalness={0.3}
+				emissive={highlight ? 0xffff00 : 0x000000}
+				emissiveIntensity={highlight ? 0.4 : 0}
+			/>
 		</mesh>
 	);
 }
 
-/** Simple keyboard state (no drei dependencies) */
+// --- Player and movement remain mostly the same ---
 function useWASD() {
 	const keysRef = useRef<Record<string, boolean>>({});
 	useEffect(() => {
@@ -87,7 +123,7 @@ function useWASD() {
 	};
 }
 
-export function Player({
+function Player({
 	onPick,
 	setFocusedProduct,
 	sceneRef,
@@ -98,7 +134,6 @@ export function Player({
 }) {
 	const group = useRef<THREE.Group>(null!);
 	const cam = useRef<THREE.PerspectiveCamera>(null!);
-	const controlsRef = useRef<any>(null);
 	const raycaster = useRef(new THREE.Raycaster());
 	const { forward, backward, left, right, sprint } = useWASD();
 
@@ -106,11 +141,9 @@ export function Player({
 	const rightVec = new THREE.Vector3();
 	const up = new THREE.Vector3(0, 1, 0);
 
-	// Movement + raycast for focused product
 	useFrame((_, delta) => {
 		if (!group.current || !cam.current) return;
 
-		// --- Movement ---
 		cam.current.getWorldDirection(dir);
 		dir.y = 0;
 		dir.normalize();
@@ -128,7 +161,7 @@ export function Player({
 			mz *= inv;
 		}
 
-		const baseSpeed = sprint() ? 8 : 4;
+		const baseSpeed = sprint() ? 4 : 2;
 		const speed = baseSpeed * delta;
 		group.current.position.addScaledVector(dir, mz * speed);
 		group.current.position.addScaledVector(rightVec, mx * speed);
@@ -143,7 +176,7 @@ export function Player({
 			22
 		);
 
-		// --- Raycast from camera ---
+		// Raycast for focused product
 		if (sceneRef.current) {
 			raycaster.current.set(
 				cam.current.getWorldPosition(new THREE.Vector3()),
@@ -157,7 +190,6 @@ export function Player({
 		}
 	});
 
-	// --- Pick product on E ---
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.code === "KeyE" && sceneRef.current) {
@@ -168,7 +200,6 @@ export function Player({
 				const intersects = raycaster.current
 					.intersectObjects(sceneRef.current.children, true)
 					.filter((i) => i.object.userData.productName);
-
 				if (intersects.length > 0)
 					onPick(intersects[0].object.userData.productName);
 			}
@@ -180,17 +211,17 @@ export function Player({
 	return (
 		<group ref={group} position={[0, 1.6, 8]}>
 			<PerspectiveCamera ref={cam} makeDefault fov={75}>
-				{/* Crosshair */}
 				<mesh position={[0, 0, -1]}>
 					<planeGeometry args={[0.02, 0.02]} />
 					<meshBasicMaterial color="white" />
 				</mesh>
 			</PerspectiveCamera>
-			<PointerLockControls ref={controlsRef} />
+			<PointerLockControls />
 		</group>
 	);
 }
 
+// --- Main App ---
 export default function App() {
 	const [cart, setCart] = useState<string[]>([]);
 	const [pointerLocked, setPointerLocked] = useState(false);
@@ -205,26 +236,22 @@ export default function App() {
 
 	const handleCanvasClick = () => {
 		if (!pointerLocked) {
-			// first click -> lock pointer
 			const canvas = canvasRef.current?.querySelector(
 				"canvas"
 			) as HTMLCanvasElement;
-			if (canvas?.requestPointerLock) {
-				canvas.requestPointerLock();
-			}
+			if (canvas?.requestPointerLock) canvas.requestPointerLock();
 		}
 	};
 
 	useEffect(() => {
 		const onLock = () => setPointerLocked(true);
 		const onUnlock = () => setPointerLocked(false);
-
-		document.addEventListener("pointerlockchange", () => {
+		const listener = () => {
 			if (document.pointerLockElement) onLock();
 			else onUnlock();
-		});
-
-		return () => document.removeEventListener("pointerlockchange", () => {});
+		};
+		document.addEventListener("pointerlockchange", listener);
+		return () => document.removeEventListener("pointerlockchange", listener);
 	}, []);
 
 	return (
@@ -233,7 +260,6 @@ export default function App() {
 			style={{ width: "100vw", height: "100vh" }}
 			onClick={handleCanvasClick}
 		>
-			{/* Cart UI overlay */}
 			<div
 				style={{
 					position: "absolute",
@@ -269,7 +295,7 @@ export default function App() {
 						padding: "4px 8px",
 						backgroundColor: "rgba(0,0,0,0.5)",
 						borderRadius: "4px",
-						pointerEvents: "none", // doesn't block clicks
+						pointerEvents: "none",
 						zIndex: 10,
 					}}
 				>
@@ -277,52 +303,89 @@ export default function App() {
 				</div>
 			)}
 
-			<Canvas shadows>
+			<Canvas
+				shadows
+				gl={{ antialias: true }}
+				camera={{ fov: 75, near: 0.1, far: 100 }}
+				onCreated={({ gl }) => {
+					gl.shadowMap.enabled = true;
+					gl.shadowMap.type = THREE.PCFSoftShadowMap;
+					gl.toneMapping = THREE.ACESFilmicToneMapping;
+					gl.toneMappingExposure = 1.1;
+				}}
+			>
+				<SoftShadows size={25} samples={8} focus={0.5} />
+				{/* Lights */}
+				<ambientLight intensity={0.3} />
 				<hemisphereLight groundColor={0x444444} intensity={0.6} />
-				<ambientLight intensity={0.5} />
 				<directionalLight
 					position={[10, 10, 5]}
-					intensity={1}
+					intensity={1.2}
 					castShadow
-					shadow-mapSize-width={2048}
-					shadow-mapSize-height={2048}
+					shadow-mapSize-width={1024}
+					shadow-mapSize-height={1024}
 					shadow-camera-near={0.5}
-					shadow-camera-far={50}
+					shadow-camera-far={30}
 				/>
-				{/* Player gets `handlePick` callback */}
+
 				<Player
 					onPick={handlePick}
 					setFocusedProduct={setFocusedProduct}
 					sceneRef={sceneRef}
 				/>
-				{/* Environment, shelves, products */}
+
 				<group ref={sceneRef}>
 					<Floor />
+					<Wall position={[0, 1.5, -25]} />
+					<Wall position={[-25, 1.5, 0]} rotation={[0, Math.PI / 2, 0]} />
+					<Wall position={[25, 1.5, 0]} rotation={[0, Math.PI / 2, 0]} />
 					<Shelf position={shelfPosition} />
-					<Product
-						position={[
-							shelfPosition[0] + 1.2,
-							1.7 + 0.25,
-							shelfPosition[2] + 0.4,
-						]}
-						color="red"
-						name="Red Cube"
-					/>{" "}
-					<Product
-						position={[shelfPosition[0], 1.1 + 0.25, shelfPosition[2] + 0.4]}
-						color="blue"
-						name="Blue Cube"
-					/>{" "}
-					<Product
-						position={[
-							shelfPosition[0] - 1.2,
-							0.5 + 0.25,
-							shelfPosition[2] + 0.4,
-						]}
-						color="green"
-						name="Green Cube"
-					/>
+					{[
+						{
+							position: [
+								shelfPosition[0] + 1.2,
+								1.7 + 0.25,
+								shelfPosition[2] + 0.4,
+							] as [number, number, number],
+							color: "red",
+							name: "Red Cube",
+						},
+						{
+							position: [
+								shelfPosition[0],
+								1.1 + 0.25,
+								shelfPosition[2] + 0.4,
+							] as [number, number, number],
+							color: "blue",
+							name: "Blue Cube",
+						},
+						{
+							position: [
+								shelfPosition[0] - 1.2,
+								0.5 + 0.25,
+								shelfPosition[2] + 0.4,
+							] as [number, number, number],
+							color: "green",
+							name: "Green Cube",
+						},
+					].map((p) => (
+						<Product
+							key={p.name}
+							{...p}
+							highlight={focusedProduct === p.name}
+						/>
+					))}
 				</group>
+
+				{/* Postprocessing */}
+				<EffectComposer multisampling={0} resolutionScale={0.75}>
+					<SSAO samples={8} radius={0.05} intensity={20} />
+					<Bloom
+						luminanceThreshold={0.3}
+						luminanceSmoothing={0.9}
+						height={300}
+					/>
+				</EffectComposer>
 			</Canvas>
 		</div>
 	);
