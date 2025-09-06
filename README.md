@@ -56,7 +56,7 @@ npm install
 3. Run locally:
 
 ```
-npm run dev
+npm start
 ```
 
 Then open 👉 http://localhost:3000

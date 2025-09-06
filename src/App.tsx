@@ -1,5 +1,11 @@
 // App.tsx
-import { useEffect, useRef, useState } from "react";
+import {
+	TouchEventHandler,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import * as THREE from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
@@ -9,6 +15,8 @@ import {
 	useTexture,
 } from "@react-three/drei";
 import { EffectComposer, SSAO, Bloom } from "@react-three/postprocessing";
+import { isMobile } from "./lib/functions";
+import MobileControls from "./components/MobileControls";
 
 // --- Floor component with texture ---
 function Floor() {
@@ -125,16 +133,21 @@ function useWASD() {
 
 function Player({
 	onPick,
+	focusedProduct,
 	setFocusedProduct,
 	sceneRef,
+	mobileMove,
 }: {
 	onPick: (name: string) => void;
+	focusedProduct: string | null;
 	setFocusedProduct: (name: string | null) => void;
 	sceneRef: React.RefObject<THREE.Group | null>;
+	mobileMove: { x: number; y: number };
 }) {
 	const group = useRef<THREE.Group>(null!);
 	const cam = useRef<THREE.PerspectiveCamera>(null!);
 	const raycaster = useRef(new THREE.Raycaster());
+	const focusedRef = useRef<string | null>(null);
 	const { forward, backward, left, right, sprint } = useWASD();
 
 	const dir = new THREE.Vector3();
@@ -151,17 +164,23 @@ function Player({
 
 		let mx = 0,
 			mz = 0;
-		if (forward()) mz += 1;
-		if (backward()) mz -= 1;
-		if (left()) mx += 1;
-		if (right()) mx -= 1;
-		if (mx !== 0 && mz !== 0) {
-			const inv = 1 / Math.sqrt(2);
-			mx *= inv;
-			mz *= inv;
+
+		if (isMobile()) {
+			// joystick
+			mx = -mobileMove.x; // joystick gives x,y
+			mz = mobileMove.y;
+		} else {
+			// keyboard
+			if (forward()) mz += 1;
+			if (backward()) mz -= 1;
+			if (left()) mx += 1;
+			if (right()) mx -= 1;
 		}
 
-		const baseSpeed = sprint() ? 4 : 2;
+		let baseSpeed = sprint() ? 4 : 2;
+		if (isMobile()) {
+			baseSpeed = 3; // faster base speed on mobile
+		}
 		const speed = baseSpeed * delta;
 		group.current.position.addScaledVector(dir, mz * speed);
 		group.current.position.addScaledVector(rightVec, mx * speed);
@@ -186,9 +205,70 @@ function Player({
 				.intersectObjects(sceneRef.current.children, true)
 				.filter((i) => i.object.userData.productName);
 
-			setFocusedProduct(intersects[0]?.object.userData.productName || null);
+			const productName = intersects[0]?.object.userData.productName || null;
+			focusedRef.current = productName;
+			setFocusedProduct(productName);
 		}
 	});
+
+	const handlePickClick = useCallback(
+		(clientX: number, clientY: number) => {
+			if (!sceneRef.current || !cam.current) return;
+
+			const canvas = document.querySelector("canvas");
+			if (!canvas) return;
+			const rect = canvas.getBoundingClientRect();
+
+			const mouse = new THREE.Vector2();
+			mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+			mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+			raycaster.current.setFromCamera(mouse, cam.current);
+
+			const intersects = raycaster.current
+				.intersectObjects(sceneRef.current.children, true)
+				.filter((i) => i.object.userData.productName);
+
+			if (focusedRef.current && intersects.length > 0) {
+				onPick(intersects[0].object.userData.productName);
+			}
+		},
+		[onPick, sceneRef] // ✅ only depends on onPick
+	);
+
+	// mobile tap detection (tap vs drag)
+	useEffect(() => {
+		if (!isMobile()) return;
+
+		let startX = 0;
+		let startY = 0;
+		const TAP_THRESHOLD = 10;
+
+		const onTouchStart = (e: TouchEvent) => {
+			startX = e.touches[0].clientX;
+			startY = e.touches[0].clientY;
+		};
+
+		const onTouchEnd = (e: TouchEvent) => {
+			const endX = e.changedTouches[0].clientX;
+			const endY = e.changedTouches[0].clientY;
+
+			const dx = Math.abs(endX - startX);
+			const dy = Math.abs(endY - startY);
+
+			if (dx < TAP_THRESHOLD && dy < TAP_THRESHOLD) {
+				handlePickClick(endX, endY);
+			}
+		};
+
+		window.addEventListener("touchstart", onTouchStart, { passive: false });
+		window.addEventListener("touchend", onTouchEnd, { passive: false });
+
+		return () => {
+			window.removeEventListener("touchstart", onTouchStart);
+			window.removeEventListener("touchend", onTouchEnd);
+		};
+	}, [handlePickClick]);
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -208,6 +288,39 @@ function Player({
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [onPick, sceneRef]);
 
+	useEffect(() => {
+		if (!isMobile || !cam.current) return;
+		let lastX = 0,
+			lastY = 0;
+
+		const handleTouchMove = (e: TouchEvent) => {
+			e.preventDefault();
+			if (e.touches.length === 1) {
+				const touch = e.touches[0];
+				const dx = touch.clientX - lastX;
+				const dy = touch.clientY - lastY;
+				cam.current.rotation.y -= dx * 0.002;
+				cam.current.rotation.x -= dy * 0.002;
+				lastX = touch.clientX;
+				lastY = touch.clientY;
+			}
+		};
+
+		const handleTouchStart = (e: TouchEvent) => {
+			e.preventDefault();
+			lastX = e.touches[0].clientX;
+			lastY = e.touches[0].clientY;
+		};
+
+		window.addEventListener("touchstart", handleTouchStart, { passive: false });
+		window.addEventListener("touchmove", handleTouchMove, { passive: false });
+
+		return () => {
+			window.removeEventListener("touchstart", handleTouchStart);
+			window.removeEventListener("touchmove", handleTouchMove);
+		};
+	}, []);
+
 	return (
 		<group ref={group} position={[0, 1.6, 8]}>
 			<PerspectiveCamera ref={cam} makeDefault fov={75}>
@@ -216,14 +329,20 @@ function Player({
 					<meshBasicMaterial color="white" />
 				</mesh>
 			</PerspectiveCamera>
-			<PointerLockControls />
+			{!isMobile() && <PointerLockControls />}
 		</group>
 	);
 }
 
+type CartItem = {
+	name: string;
+	count: number;
+};
+
 // --- Main App ---
 export default function App() {
-	const [cart, setCart] = useState<string[]>([]);
+	const [cart, setCart] = useState<CartItem[]>([]);
+	const [mobileMove, setMobileMove] = useState({ x: 0, y: 0 });
 	const [pointerLocked, setPointerLocked] = useState(false);
 	const [focusedProduct, setFocusedProduct] = useState<string | null>(null);
 	const sceneRef = useRef<THREE.Group>(null);
@@ -231,16 +350,29 @@ export default function App() {
 	const shelfPosition = [0, 0, 4] as [number, number, number];
 
 	const handlePick = (productName: string) => {
-		setCart((prev) => [...prev, productName]);
+		setCart((prev) => {
+			const existing = prev.find((p) => p.name === productName);
+			if (existing) {
+				return prev.map((p) =>
+					p.name === productName ? { ...p, count: p.count + 1 } : p
+				);
+			}
+			return [...prev, { name: productName, count: 1 }];
+		});
 	};
 
 	const handleCanvasClick = () => {
-		if (!pointerLocked) {
+		if (!pointerLocked && !isMobile()) {
 			const canvas = canvasRef.current?.querySelector(
 				"canvas"
 			) as HTMLCanvasElement;
 			if (canvas?.requestPointerLock) canvas.requestPointerLock();
 		}
+	};
+
+	const onEmptyCart = (e: React.SyntheticEvent) => {
+		e.preventDefault();
+		setCart([]);
 	};
 
 	useEffect(() => {
@@ -275,11 +407,20 @@ export default function App() {
 				{cart.length === 0 ? (
 					<p>No items</p>
 				) : (
-					<ul>
-						{cart.map((item, i) => (
-							<li key={i}>{item}</li>
-						))}
-					</ul>
+					<>
+						<ul style={{ paddingLeft: "20px" }}>
+							{cart.map((item, i) => (
+								<li key={i}>
+									{item.name} ({item.count}x)
+								</li>
+							))}
+						</ul>
+						<div style={{ textAlign: "center" }}>
+							<button onClick={onEmptyCart} onTouchEnd={onEmptyCart}>
+								Clear
+							</button>
+						</div>
+					</>
 				)}
 			</div>
 
@@ -302,6 +443,8 @@ export default function App() {
 					{focusedProduct}
 				</div>
 			)}
+
+			{isMobile() && <MobileControls setMove={setMobileMove} />}
 
 			<Canvas
 				shadows
@@ -330,8 +473,10 @@ export default function App() {
 
 				<Player
 					onPick={handlePick}
+					focusedProduct={focusedProduct}
 					setFocusedProduct={setFocusedProduct}
 					sceneRef={sceneRef}
+					mobileMove={mobileMove}
 				/>
 
 				<group ref={sceneRef}>
