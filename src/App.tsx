@@ -1,26 +1,16 @@
 // App.tsx
-import {
-	TouchEventHandler,
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { Canvas, useFrame } from "@react-three/fiber";
-import {
-	PointerLockControls,
-	PerspectiveCamera,
-	SoftShadows,
-	useTexture,
-} from "@react-three/drei";
+import { Canvas } from "@react-three/fiber";
+import { SoftShadows, useTexture } from "@react-three/drei";
 import { EffectComposer, SSAO, Bloom } from "@react-three/postprocessing";
 import { isMobile } from "./lib/functions";
 import MobileControls from "./components/MobileControls";
+import Player from "./components/Player";
 
-// --- Floor component with texture ---
+// ---------- Floor ----------
 function Floor() {
-	const texture = useTexture("/textures/floor.jpeg"); // add a floor texture
+	const texture = useTexture("/textures/floor.jpeg");
 	texture.anisotropy = 4;
 	texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
 	texture.repeat.set(10, 10);
@@ -33,7 +23,7 @@ function Floor() {
 	);
 }
 
-// --- Wall component ---
+// ---------- Wall ----------
 function Wall({
 	position,
 	rotation,
@@ -54,15 +44,23 @@ function Wall({
 	);
 }
 
-// --- Shelf with wood texture ---
+// ---------- Shelf ----------
 function Shelf({ position }: { position: [number, number, number] }) {
+	const groupRef = useRef<THREE.Group>(null);
+	const bboxRef = useRef<THREE.Box3>(null);
 	const woodTexture = useTexture("/textures/wood-light.jpeg");
 	woodTexture.anisotropy = 4;
 	woodTexture.wrapS = woodTexture.wrapT = THREE.RepeatWrapping;
-	woodTexture.repeat.set(1, 1);
+
+	useEffect(() => {
+		if (groupRef.current) {
+			const box = new THREE.Box3().setFromObject(groupRef.current);
+			bboxRef.current = box;
+		}
+	}, []);
 
 	return (
-		<group position={position}>
+		<group ref={groupRef} position={position} userData={{ bboxRef }}>
 			<mesh position={[0, 1, 0]} castShadow receiveShadow>
 				<boxGeometry args={[4, 2, 0.1]} />
 				<meshStandardMaterial map={woodTexture} roughness={0.6} />
@@ -77,7 +75,7 @@ function Shelf({ position }: { position: [number, number, number] }) {
 	);
 }
 
-// --- Product with optional highlight ---
+// ---------- Product ----------
 function Product({
 	position,
 	color,
@@ -108,238 +106,10 @@ function Product({
 	);
 }
 
-// --- Player and movement remain mostly the same ---
-function useWASD() {
-	const keysRef = useRef<Record<string, boolean>>({});
-	useEffect(() => {
-		const down = (e: KeyboardEvent) => (keysRef.current[e.code] = true);
-		const up = (e: KeyboardEvent) => (keysRef.current[e.code] = false);
-		window.addEventListener("keydown", down);
-		window.addEventListener("keyup", up);
-		return () => {
-			window.removeEventListener("keydown", down);
-			window.removeEventListener("keyup", up);
-		};
-	}, []);
-	const is = (code: string) => !!keysRef.current[code];
-	return {
-		forward: () => is("KeyW") || is("ArrowUp"),
-		backward: () => is("KeyS") || is("ArrowDown"),
-		left: () => is("KeyA") || is("ArrowLeft"),
-		right: () => is("KeyD") || is("ArrowRight"),
-		sprint: () => is("ShiftLeft") || is("ShiftRight"),
-	};
-}
+// ---------- CartItem ----------
+type CartItem = { name: string; count: number };
 
-function Player({
-	onPick,
-	focusedProduct,
-	setFocusedProduct,
-	sceneRef,
-	mobileMove,
-}: {
-	onPick: (name: string) => void;
-	focusedProduct: string | null;
-	setFocusedProduct: (name: string | null) => void;
-	sceneRef: React.RefObject<THREE.Group | null>;
-	mobileMove: { x: number; y: number };
-}) {
-	const group = useRef<THREE.Group>(null!);
-	const cam = useRef<THREE.PerspectiveCamera>(null!);
-	const raycaster = useRef(new THREE.Raycaster());
-	const focusedRef = useRef<string | null>(null);
-	const { forward, backward, left, right, sprint } = useWASD();
-
-	const dir = new THREE.Vector3();
-	const rightVec = new THREE.Vector3();
-	const up = new THREE.Vector3(0, 1, 0);
-
-	useFrame((_, delta) => {
-		if (!group.current || !cam.current) return;
-
-		cam.current.getWorldDirection(dir);
-		dir.y = 0;
-		dir.normalize();
-		rightVec.crossVectors(up, dir).normalize();
-
-		let mx = 0,
-			mz = 0;
-
-		if (isMobile()) {
-			// joystick
-			mx = -mobileMove.x; // joystick gives x,y
-			mz = mobileMove.y;
-		} else {
-			// keyboard
-			if (forward()) mz += 1;
-			if (backward()) mz -= 1;
-			if (left()) mx += 1;
-			if (right()) mx -= 1;
-		}
-
-		let baseSpeed = sprint() ? 4 : 2;
-		if (isMobile()) {
-			baseSpeed = 3; // faster base speed on mobile
-		}
-		const speed = baseSpeed * delta;
-		group.current.position.addScaledVector(dir, mz * speed);
-		group.current.position.addScaledVector(rightVec, mx * speed);
-		group.current.position.x = THREE.MathUtils.clamp(
-			group.current.position.x,
-			-22,
-			22
-		);
-		group.current.position.z = THREE.MathUtils.clamp(
-			group.current.position.z,
-			-22,
-			22
-		);
-
-		// Raycast for focused product
-		if (sceneRef.current) {
-			raycaster.current.set(
-				cam.current.getWorldPosition(new THREE.Vector3()),
-				cam.current.getWorldDirection(new THREE.Vector3())
-			);
-			const intersects = raycaster.current
-				.intersectObjects(sceneRef.current.children, true)
-				.filter((i) => i.object.userData.productName);
-
-			const productName = intersects[0]?.object.userData.productName || null;
-			focusedRef.current = productName;
-			setFocusedProduct(productName);
-		}
-	});
-
-	const handlePickClick = useCallback(
-		(clientX: number, clientY: number) => {
-			if (!sceneRef.current || !cam.current) return;
-
-			const canvas = document.querySelector("canvas");
-			if (!canvas) return;
-			const rect = canvas.getBoundingClientRect();
-
-			const mouse = new THREE.Vector2();
-			mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-			mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-
-			raycaster.current.setFromCamera(mouse, cam.current);
-
-			const intersects = raycaster.current
-				.intersectObjects(sceneRef.current.children, true)
-				.filter((i) => i.object.userData.productName);
-
-			if (focusedRef.current && intersects.length > 0) {
-				onPick(intersects[0].object.userData.productName);
-			}
-		},
-		[onPick, sceneRef] // ✅ only depends on onPick
-	);
-
-	// mobile tap detection (tap vs drag)
-	useEffect(() => {
-		if (!isMobile()) return;
-
-		let startX = 0;
-		let startY = 0;
-		const TAP_THRESHOLD = 10;
-
-		const onTouchStart = (e: TouchEvent) => {
-			startX = e.touches[0].clientX;
-			startY = e.touches[0].clientY;
-		};
-
-		const onTouchEnd = (e: TouchEvent) => {
-			const endX = e.changedTouches[0].clientX;
-			const endY = e.changedTouches[0].clientY;
-
-			const dx = Math.abs(endX - startX);
-			const dy = Math.abs(endY - startY);
-
-			if (dx < TAP_THRESHOLD && dy < TAP_THRESHOLD) {
-				handlePickClick(endX, endY);
-			}
-		};
-
-		window.addEventListener("touchstart", onTouchStart, { passive: false });
-		window.addEventListener("touchend", onTouchEnd, { passive: false });
-
-		return () => {
-			window.removeEventListener("touchstart", onTouchStart);
-			window.removeEventListener("touchend", onTouchEnd);
-		};
-	}, [handlePickClick]);
-
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (e.code === "KeyE" && sceneRef.current) {
-				raycaster.current.set(
-					cam.current.getWorldPosition(new THREE.Vector3()),
-					cam.current.getWorldDirection(new THREE.Vector3())
-				);
-				const intersects = raycaster.current
-					.intersectObjects(sceneRef.current.children, true)
-					.filter((i) => i.object.userData.productName);
-				if (intersects.length > 0)
-					onPick(intersects[0].object.userData.productName);
-			}
-		};
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [onPick, sceneRef]);
-
-	useEffect(() => {
-		if (!isMobile || !cam.current) return;
-		let lastX = 0,
-			lastY = 0;
-
-		const handleTouchMove = (e: TouchEvent) => {
-			e.preventDefault();
-			if (e.touches.length === 1) {
-				const touch = e.touches[0];
-				const dx = touch.clientX - lastX;
-				const dy = touch.clientY - lastY;
-				cam.current.rotation.y -= dx * 0.002;
-				cam.current.rotation.x -= dy * 0.002;
-				lastX = touch.clientX;
-				lastY = touch.clientY;
-			}
-		};
-
-		const handleTouchStart = (e: TouchEvent) => {
-			e.preventDefault();
-			lastX = e.touches[0].clientX;
-			lastY = e.touches[0].clientY;
-		};
-
-		window.addEventListener("touchstart", handleTouchStart, { passive: false });
-		window.addEventListener("touchmove", handleTouchMove, { passive: false });
-
-		return () => {
-			window.removeEventListener("touchstart", handleTouchStart);
-			window.removeEventListener("touchmove", handleTouchMove);
-		};
-	}, []);
-
-	return (
-		<group ref={group} position={[0, 1.6, 8]}>
-			<PerspectiveCamera ref={cam} makeDefault fov={75}>
-				<mesh position={[0, 0, -1]}>
-					<planeGeometry args={[0.02, 0.02]} />
-					<meshBasicMaterial color="white" />
-				</mesh>
-			</PerspectiveCamera>
-			{!isMobile() && <PointerLockControls />}
-		</group>
-	);
-}
-
-type CartItem = {
-	name: string;
-	count: number;
-};
-
-// --- Main App ---
+// ---------- Main App ----------
 export default function App() {
 	const [cart, setCart] = useState<CartItem[]>([]);
 	const [mobileMove, setMobileMove] = useState({ x: 0, y: 0 });
@@ -347,17 +117,16 @@ export default function App() {
 	const [focusedProduct, setFocusedProduct] = useState<string | null>(null);
 	const sceneRef = useRef<THREE.Group>(null);
 	const canvasRef = useRef<HTMLDivElement>(null);
-	const shelfPosition = [0, 0, 4] as [number, number, number];
+	const focusedRef = useRef<string | null>(null);
 
 	const handlePick = (productName: string) => {
 		setCart((prev) => {
 			const existing = prev.find((p) => p.name === productName);
-			if (existing) {
-				return prev.map((p) =>
-					p.name === productName ? { ...p, count: p.count + 1 } : p
-				);
-			}
-			return [...prev, { name: productName, count: 1 }];
+			return existing
+				? prev.map((p) =>
+						p.name === productName ? { ...p, count: p.count + 1 } : p
+				  )
+				: [...prev, { name: productName, count: 1 }];
 		});
 	};
 
@@ -366,7 +135,7 @@ export default function App() {
 			const canvas = canvasRef.current?.querySelector(
 				"canvas"
 			) as HTMLCanvasElement;
-			if (canvas?.requestPointerLock) canvas.requestPointerLock();
+			canvas?.requestPointerLock?.();
 		}
 	};
 
@@ -376,15 +145,12 @@ export default function App() {
 	};
 
 	useEffect(() => {
-		const onLock = () => setPointerLocked(true);
-		const onUnlock = () => setPointerLocked(false);
-		const listener = () => {
-			if (document.pointerLockElement) onLock();
-			else onUnlock();
-		};
+		const listener = () => setPointerLocked(!!document.pointerLockElement);
 		document.addEventListener("pointerlockchange", listener);
 		return () => document.removeEventListener("pointerlockchange", listener);
 	}, []);
+
+	const shelfPosition = [0, 0, 4] as [number, number, number];
 
 	return (
 		<div
@@ -392,6 +158,7 @@ export default function App() {
 			style={{ width: "100vw", height: "100vh" }}
 			onClick={handleCanvasClick}
 		>
+			{/* Cart */}
 			<div
 				style={{
 					position: "absolute",
@@ -424,11 +191,29 @@ export default function App() {
 				)}
 			</div>
 
-			{focusedProduct && (
+			{/* Crosshair in center */}
+			<div
+				style={{
+					position: "absolute",
+					top: "50%",
+					left: "50%",
+					transform: "translate(-50%, -50%)",
+					fontSize: "24px",
+					color: "white",
+					zIndex: 20,
+					pointerEvents: "none",
+					textAlign: "center",
+				}}
+			>
+				+
+			</div>
+
+			{/* Focused Product Overlay */}
+			{focusedRef.current && (
 				<div
 					style={{
 						position: "absolute",
-						top: "50%",
+						top: "46%",
 						left: "50%",
 						transform: "translate(-50%, -50%)",
 						color: "yellow",
@@ -440,12 +225,13 @@ export default function App() {
 						zIndex: 10,
 					}}
 				>
-					{focusedProduct}
+					{focusedRef.current}
 				</div>
 			)}
 
 			{isMobile() && <MobileControls setMove={setMobileMove} />}
 
+			{/* 3D Scene */}
 			<Canvas
 				shadows
 				gl={{ antialias: true }}
@@ -458,7 +244,6 @@ export default function App() {
 				}}
 			>
 				<SoftShadows size={25} samples={8} focus={0.5} />
-				{/* Lights */}
 				<ambientLight intensity={0.3} />
 				<hemisphereLight groundColor={0x444444} intensity={0.6} />
 				<directionalLight
@@ -473,18 +258,20 @@ export default function App() {
 
 				<Player
 					onPick={handlePick}
-					focusedProduct={focusedProduct}
-					setFocusedProduct={setFocusedProduct}
 					sceneRef={sceneRef}
 					mobileMove={mobileMove}
+					focusedRef={focusedRef}
+					setFocusedProduct={setFocusedProduct}
 				/>
 
 				<group ref={sceneRef}>
 					<Floor />
 					<Wall position={[0, 1.5, -25]} />
+					<Wall position={[0, 1.5, 25]} />
 					<Wall position={[-25, 1.5, 0]} rotation={[0, Math.PI / 2, 0]} />
 					<Wall position={[25, 1.5, 0]} rotation={[0, Math.PI / 2, 0]} />
 					<Shelf position={shelfPosition} />
+
 					{[
 						{
 							position: [
@@ -513,17 +300,22 @@ export default function App() {
 							color: "green",
 							name: "Green Cube",
 						},
-					].map((p) => (
-						<Product
-							key={p.name}
-							{...p}
-							highlight={focusedProduct === p.name}
-						/>
-					))}
+					]
+						// .filter((p) => !cart.find((c) => c.name === p.name))
+						.map((p) => (
+							<Product
+								key={p.name}
+								{...p}
+								highlight={focusedProduct === p.name}
+							/>
+						))}
 				</group>
 
-				{/* Postprocessing */}
-				<EffectComposer multisampling={0} resolutionScale={0.75}>
+				<EffectComposer
+					enableNormalPass
+					multisampling={0}
+					resolutionScale={0.75}
+				>
 					<SSAO samples={8} radius={0.05} intensity={20} />
 					<Bloom
 						luminanceThreshold={0.3}
