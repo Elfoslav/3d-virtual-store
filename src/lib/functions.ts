@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
 
 export function isMobile() {
-  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(
+    navigator.userAgent
+  );
 }
 
 export function useWASD() {

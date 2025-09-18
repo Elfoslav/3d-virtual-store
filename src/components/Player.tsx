@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { PointerLockControls, PerspectiveCamera } from "@react-three/drei";
 import { isMobile, useWASD } from "../lib/functions";
+import { useBox } from "@react-three/cannon";
 
 export default function Player({
 	onPick,
@@ -17,18 +18,33 @@ export default function Player({
 	focusedRef: React.MutableRefObject<string | null>;
 	setFocusedProduct: React.Dispatch<React.SetStateAction<string | null>>;
 }) {
-	const group = useRef<THREE.Group>(null!);
 	const cam = useRef<THREE.PerspectiveCamera>(null!);
 	const raycaster = useRef(new THREE.Raycaster());
 	const { forward, backward, left, right, sprint } = useWASD();
+	// ⬇️ Physics body for player
+	const [ref, api] = useBox(() => ({
+		mass: 1,
+		args: [0.5, 2.2, 0.5],
+		position: [0, 1, 5],
+		linearDamping: 0.8, // smaller damping → slides faster
+		angularDamping: 1,
+		fixedRotation: true,
+	}));
 
 	const dir = new THREE.Vector3();
 	const rightVec = new THREE.Vector3();
 	const up = new THREE.Vector3(0, 1, 0);
 
+	// Track physics position
+	const vel = useRef<[number, number, number]>([0, 0, 0]);
+	const pos = useRef<[number, number, number]>([0, 0, 0]);
+
+	useEffect(() => api.velocity.subscribe((v) => (vel.current = v)), [api]);
+	useEffect(() => api.position.subscribe((p) => (pos.current = p)), [api]);
+
 	// --- movement & raycasting ---
 	useFrame((_, delta) => {
-		if (!group.current || !cam.current) return;
+		if (!cam.current) return;
 
 		cam.current.getWorldDirection(dir);
 		dir.y = 0;
@@ -50,23 +66,35 @@ export default function Player({
 			if (right()) mx -= 1;
 		}
 
-		let baseSpeed = sprint() ? 4 : 2;
+		let baseSpeed = sprint() ? 16 : 14;
 		if (isMobile()) {
-			baseSpeed = 3; // faster base speed on mobile
+			baseSpeed = 15; // faster base speed on mobile
 		}
-		const speed = baseSpeed * delta;
-		group.current.position.addScaledVector(dir, mz * speed);
-		group.current.position.addScaledVector(rightVec, mx * speed);
-		group.current.position.x = THREE.MathUtils.clamp(
-			group.current.position.x,
-			-22,
-			22
-		);
-		group.current.position.z = THREE.MathUtils.clamp(
-			group.current.position.z,
-			-22,
-			22
-		);
+		// const speed = baseSpeed * delta;
+		// group.current.position.addScaledVector(dir, mz * speed);
+		// group.current.position.addScaledVector(rightVec, mx * speed);
+		// group.current.position.x = THREE.MathUtils.clamp(
+		// 	group.current.position.x,
+		// 	-22,
+		// 	22
+		// );
+		// group.current.position.z = THREE.MathUtils.clamp(
+		// 	group.current.position.z,
+		// 	-22,
+		// 	22
+		// );
+
+		// Movement vector
+		const moveDir = new THREE.Vector3();
+		moveDir.addScaledVector(dir, mz);
+		moveDir.addScaledVector(rightVec, mx);
+
+		if (moveDir.lengthSq() > 0) {
+			moveDir.normalize().multiplyScalar(baseSpeed);
+		}
+
+		// 🚀 Apply velocity to Cannon body
+		api.velocity.set(moveDir.x, 0, moveDir.z);
 
 		// Raycast for focused product
 		if (sceneRef.current) {
@@ -209,7 +237,7 @@ export default function Player({
 	}, []);
 
 	return (
-		<group ref={group} position={[0, 1.6, 8]}>
+		<group ref={ref} position={[0, 1.6, 8]}>
 			<PerspectiveCamera ref={cam} makeDefault fov={75}>
 				<mesh position={[0, 0, -1]}>
 					<planeGeometry args={[0.02, 0.02]} />
