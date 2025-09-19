@@ -2,16 +2,17 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
-import { Physics } from "@react-three/cannon";
-import { SoftShadows, useTexture } from "@react-three/drei";
+import { Debug, Physics } from "@react-three/cannon";
+import { SoftShadows } from "@react-three/drei";
 import { EffectComposer, SSAO, Bloom } from "@react-three/postprocessing";
 import { isMobile } from "./lib/functions";
 import MobileControls from "./components/MobileControls";
 import Floor from "./components/Floor";
 import Wall from "./components/Wall";
 import Player from "./components/Player";
-import Product from "./components/Product";
-import Shelf from "./components/Shelf";
+import Roof from "./components/Roof";
+import { WALL_OFFSET, WALL_POSITION_Y } from "./lib/consts";
+import ShelvesGroup from "./components/ShelvesGroup";
 
 // ---------- CartItem ----------
 type CartItem = { name: string; count: number };
@@ -57,8 +58,6 @@ export default function App() {
 		return () => document.removeEventListener("pointerlockchange", listener);
 	}, []);
 
-	const shelfPosition = [0, 0, 6] as [number, number, number];
-
 	return (
 		<div
 			ref={canvasRef}
@@ -96,23 +95,6 @@ export default function App() {
 						</div>
 					</>
 				)}
-			</div>
-
-			{/* Crosshair in center */}
-			<div
-				style={{
-					position: "absolute",
-					top: "49.5%",
-					left: "50%",
-					transform: "translate(-50%, -50%)",
-					fontSize: "24px",
-					color: "white",
-					zIndex: 20,
-					pointerEvents: "none",
-					textAlign: "center",
-				}}
-			>
-				+
 			</div>
 
 			{/* Focused Product Overlay Text */}
@@ -162,7 +144,7 @@ export default function App() {
 					shadow-camera-near={0.5}
 					shadow-camera-far={30}
 				/>
-				<Physics gravity={[0, -9.81, 0]}>
+				<Physics gravity={[0, -9.81, 0]} iterations={10}>
 					<Player
 						onPick={handlePick}
 						sceneRef={sceneRef}
@@ -172,18 +154,24 @@ export default function App() {
 					/>
 
 					<group ref={sceneRef}>
+						<Roof />
 						<Floor />
-						<Wall position={[0, 1.5, -25]} />
-						<Wall position={[0, 1.5, 25]} />
-						<Wall position={[-25, 1.5, 0]} rotation={[0, Math.PI / 2, 0]} />
-						<Wall position={[25, 1.5, 0]} rotation={[0, Math.PI / 2, 0]} />
-						<Shelf position={[-3.6 * 3, 0, -5]} />
-						<Shelf position={[-3.6 * 2, 0, -5]} />
-						<Shelf position={[-3.6, 0, -5]} />
-						<Shelf position={[0, 0, -5]} />
-						<Shelf position={[3.6, 0, -5]} />
-						<Shelf position={[3.6 * 2, 0, -5]} />
-						<Shelf position={[3.6 * 3, 0, -5]} />
+
+						{/* Front wall */}
+						<Wall position={[0, WALL_POSITION_Y, -WALL_OFFSET]} />
+						{/* Back wall */}
+						<Wall position={[0, WALL_POSITION_Y, WALL_OFFSET]} />
+						{/* Left wall */}
+						<Wall
+							position={[-WALL_OFFSET, WALL_POSITION_Y, 0]}
+							rotation={[0, Math.PI / 2, 0]}
+						/>
+						{/* Right wall */}
+						<Wall
+							position={[WALL_OFFSET, WALL_POSITION_Y, 0]}
+							rotation={[0, Math.PI / 2, 0]}
+						/>
+						<ShelvesGroup />
 					</group>
 
 					<EffectComposer

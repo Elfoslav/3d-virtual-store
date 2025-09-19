@@ -66,23 +66,10 @@ export default function Player({
 			if (right()) mx -= 1;
 		}
 
-		let baseSpeed = sprint() ? 16 : 14;
+		let baseSpeed = sprint() ? 20 : 17;
 		if (isMobile()) {
-			baseSpeed = 15; // faster base speed on mobile
+			baseSpeed = 20; // faster base speed on mobile
 		}
-		// const speed = baseSpeed * delta;
-		// group.current.position.addScaledVector(dir, mz * speed);
-		// group.current.position.addScaledVector(rightVec, mx * speed);
-		// group.current.position.x = THREE.MathUtils.clamp(
-		// 	group.current.position.x,
-		// 	-22,
-		// 	22
-		// );
-		// group.current.position.z = THREE.MathUtils.clamp(
-		// 	group.current.position.z,
-		// 	-22,
-		// 	22
-		// );
 
 		// Movement vector
 		const moveDir = new THREE.Vector3();
@@ -239,10 +226,19 @@ export default function Player({
 	return (
 		<group ref={ref} position={[0, 1.6, 8]}>
 			<PerspectiveCamera ref={cam} makeDefault fov={75}>
-				<mesh position={[0, 0, -1]}>
-					<planeGeometry args={[0.02, 0.02]} />
-					<meshBasicMaterial color="white" />
-				</mesh>
+				{/* Crosshair group */}
+				<group position={[0, 0, -1]}>
+					{/* Vertical line */}
+					<mesh>
+						<planeGeometry args={[0.005, 0.05]} />
+						<meshBasicMaterial color="white" />
+					</mesh>
+					{/* Horizontal line */}
+					<mesh>
+						<planeGeometry args={[0.05, 0.005]} />
+						<meshBasicMaterial color="white" />
+					</mesh>
+				</group>
 			</PerspectiveCamera>
 			{!isMobile() && <PointerLockControls />}
 		</group>

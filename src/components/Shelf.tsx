@@ -1,20 +1,32 @@
-import { useBox } from "@react-three/cannon";
+// Shelf.tsx
+import React, { useMemo } from "react";
+import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
+import { useCompoundBody } from "@react-three/cannon";
 import { useTexture } from "@react-three/drei";
+import { SHELF_SIZE, SHELF_THICKNESS, PRODUCT_SIZE } from "../lib/consts";
 import Product from "./Product";
-import type { JSX } from "react";
 
 type ShelfProps = {
 	position?: [number, number, number];
 	productCountPerShelf?: number;
+	rowIndex?: number;
+	colIndex?: number;
 };
 
-const SHELF_SIZE: [number, number, number] = [3.6, 2, 0.6]; // width, height, depth
-const SHELF_THICKNESS = 0.1;
-const PRODUCT_SIZE = 0.3;
+const photos = [
+	"/products-images/gita-02.jpg",
+	"/products-images/bg-original.webp",
+	"/products-images/gita-02.jpg",
+	"/products-images/bg-original.webp",
+	"/products-images/gita-02.jpg",
+];
 
 export default function Shelf({
 	position = [0, 0, 0],
 	productCountPerShelf = 5,
+	rowIndex = 0,
+	colIndex = 0,
 }: ShelfProps) {
 	const woodTexture = useTexture("/textures/wood-light.jpeg");
 	woodTexture.anisotropy = 4;
@@ -22,101 +34,80 @@ export default function Shelf({
 	const [w, h, d] = SHELF_SIZE;
 	const shelfSpacing = (h - SHELF_THICKNESS) / 3;
 
-	// --- Shelves ---
-	const [bottomShelfRef] = useBox(() => ({
-		args: [w, SHELF_THICKNESS, d],
-		position: [position[0], position[1], position[2]],
-		type: "Static",
+	// --- physics body ---
+	const [ref] = useCompoundBody(() => ({
+		mass: 0,
+		position,
+		shapes: [
+			{ type: "Box", args: [w, SHELF_THICKNESS, d], position: [0, 0, 0] }, // bottom
+			{
+				type: "Box",
+				args: [w, SHELF_THICKNESS, d],
+				position: [0, shelfSpacing, 0],
+			}, // middle
+			{
+				type: "Box",
+				args: [w, SHELF_THICKNESS, d],
+				position: [0, 2 * shelfSpacing, 0],
+			}, // top
+			{ type: "Box", args: [0.05, h, d], position: [-w / 2, h / 2, 0] }, // left
+			{ type: "Box", args: [0.05, h, d], position: [w / 2, h / 2, 0] }, // right
+			{ type: "Box", args: [w, h, 0.05], position: [0, h / 2, -d / 2] }, // back
+		],
 	}));
 
-	const [middleShelfRef] = useBox(() => ({
-		args: [w, SHELF_THICKNESS, d],
-		position: [position[0], position[1] + shelfSpacing, position[2]],
-		type: "Static",
-	}));
+	// --- merged geometry for shelf mesh ---
+	const shelfGeometry = useMemo(() => {
+		const geoms: THREE.BoxGeometry[] = [];
+		[0, 1, 2].forEach((i) =>
+			geoms.push(
+				new THREE.BoxGeometry(w, SHELF_THICKNESS, d).translate(
+					0,
+					i * shelfSpacing,
+					0
+				)
+			)
+		);
+		geoms.push(new THREE.BoxGeometry(0.05, h, d).translate(-w / 2, h / 2, 0));
+		geoms.push(new THREE.BoxGeometry(0.05, h, d).translate(w / 2, h / 2, 0));
+		geoms.push(new THREE.BoxGeometry(w, h, 0.05).translate(0, h / 2, -d / 2));
+		return mergeGeometries(geoms, false);
+	}, [w, h, d, shelfSpacing]);
 
-	const [topShelfRef] = useBox(() => ({
-		args: [w, SHELF_THICKNESS, d],
-		position: [position[0], position[1] + 2 * shelfSpacing, position[2]],
-		type: "Static",
-	}));
-
-	// --- Back and sides ---
-	const [backRef] = useBox(() => ({
-		args: [w, h, 0.05],
-		position: [position[0], position[1] + h / 2, position[2] - d / 2],
-		type: "Static",
-	}));
-
-	const [leftRef] = useBox(() => ({
-		args: [0.05, h, d],
-		position: [position[0] - w / 2, position[1] + h / 2, position[2]],
-		type: "Static",
-	}));
-
-	const [rightRef] = useBox(() => ({
-		args: [0.05, h, d],
-		position: [position[0] + w / 2, position[1] + h / 2, position[2]],
-		type: "Static",
-	}));
-
-	// --- Products for each shelf ---
-	const createProductsForShelf = (shelfIndex: number) => {
-		const y =
-			position[1] +
-			shelfIndex * shelfSpacing +
-			SHELF_THICKNESS / 2 +
-			PRODUCT_SIZE / 2;
-		const products: JSX.Element[] = [];
-		for (let i = 0; i < productCountPerShelf; i++) {
-			const x = position[0] - w / 2 + (i + 0.5) * (w / productCountPerShelf);
-			const z = position[2]; // center of shelf
-			products.push(
-				<Product
-					key={`shelf-${shelfIndex}-product-${i}`}
-					position={[x, y, z]}
-					color={`hsl(${(i * 60) % 360}, 80%, 50%)`}
-					name={`Product ${shelfIndex}-${i}`}
-				/>
-			);
+	// --- products ---
+	const products = useMemo(() => {
+		const result = [];
+		for (let shelfIndex = 0; shelfIndex < 3; shelfIndex++) {
+			const y =
+				shelfIndex * shelfSpacing + SHELF_THICKNESS / 2 + PRODUCT_SIZE / 2;
+			for (let i = 0; i < productCountPerShelf; i++) {
+				const x = -w / 2 + (i + 0.5) * (w / productCountPerShelf);
+				const z = d / 2 - PRODUCT_SIZE / 2 - 0.01;
+				// create a unique photo URL per shelf/product to avoid caching issues
+				const photoUrl =
+					photos[i % photos.length] +
+					`?shelf=${rowIndex}-${colIndex}-${shelfIndex}-${i}`;
+				result.push(
+					<Product
+						key={`product-${rowIndex}-${colIndex}-${shelfIndex}-${i}`}
+						position={[x, y, z]}
+						name={`Product ${rowIndex}-${colIndex}-${shelfIndex}-${i}`}
+						color={`hsl(${(i * 60) % 360}, 80%, 50%)`}
+						photoUrl={photoUrl}
+						usePhysics={false}
+					/>
+				);
+			}
 		}
-		return products;
-	};
+		return result;
+	}, [w, d, shelfSpacing, productCountPerShelf, rowIndex, colIndex]);
 
 	return (
-		<group>
-			{/* Shelves */}
-			<mesh ref={bottomShelfRef} castShadow receiveShadow>
-				<boxGeometry args={[w, SHELF_THICKNESS, d]} />
+		<group ref={ref}>
+			<mesh geometry={shelfGeometry} castShadow receiveShadow>
 				<meshStandardMaterial map={woodTexture} roughness={0.6} />
 			</mesh>
-			<mesh ref={middleShelfRef} castShadow receiveShadow>
-				<boxGeometry args={[w, SHELF_THICKNESS, d]} />
-				<meshStandardMaterial map={woodTexture} roughness={0.6} />
-			</mesh>
-			<mesh ref={topShelfRef} castShadow receiveShadow>
-				<boxGeometry args={[w, SHELF_THICKNESS, d]} />
-				<meshStandardMaterial map={woodTexture} roughness={0.6} />
-			</mesh>
-
-			{/* Back and sides */}
-			<mesh ref={backRef} castShadow receiveShadow>
-				<boxGeometry args={[w, h, 0.05]} />
-				<meshStandardMaterial map={woodTexture} roughness={0.6} />
-			</mesh>
-			<mesh ref={leftRef} castShadow receiveShadow>
-				<boxGeometry args={[0.05, h, d]} />
-				<meshStandardMaterial map={woodTexture} roughness={0.6} />
-			</mesh>
-			<mesh ref={rightRef} castShadow receiveShadow>
-				<boxGeometry args={[0.05, h, d]} />
-				<meshStandardMaterial map={woodTexture} roughness={0.6} />
-			</mesh>
-
-			{/* Products */}
-			{createProductsForShelf(0)}
-			{createProductsForShelf(1)}
-			{createProductsForShelf(2)}
+			{products}
 		</group>
 	);
 }
