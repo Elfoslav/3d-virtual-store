@@ -84,18 +84,35 @@ export default function Player({
 		api.velocity.set(moveDir.x, 0, moveDir.z);
 
 		// Raycast for focused product
-		if (sceneRef.current) {
-			raycaster.current.set(
-				cam.current.getWorldPosition(new THREE.Vector3()),
-				cam.current.getWorldDirection(new THREE.Vector3())
-			);
-			const intersects = raycaster.current
-				.intersectObjects(sceneRef.current.children, true)
-				.filter((i) => i.object.userData.productName);
+		if (cam.current && sceneRef.current) {
+			const ray = raycaster.current;
+			const camPos = cam.current.getWorldPosition(new THREE.Vector3());
+			const camDir = cam.current.getWorldDirection(new THREE.Vector3());
 
-			const productName = intersects[0]?.object.userData.productName || null;
-			focusedRef.current = productName;
-			setFocusedProduct(productName);
+			ray.set(camPos, camDir);
+
+			// Raycast against all children of the scene
+			const hits = ray.intersectObjects(sceneRef.current.children, true);
+
+			// Find the first product that is not occluded
+			let visibleProduct: string | null = null;
+
+			for (const hit of hits) {
+				const obj = hit.object;
+
+				if (obj.userData.productName) {
+					// If first hit is the product itself, it's visible
+					visibleProduct = obj.userData.productName;
+					break;
+				} else if (obj.userData.isShelf) {
+					// Hit a shelf first -> product is blocked
+					break;
+				}
+				// else: some other object, keep checking
+			}
+
+			focusedRef.current = visibleProduct;
+			setFocusedProduct(visibleProduct);
 		}
 	});
 
@@ -191,20 +208,38 @@ export default function Player({
 	}, [onPick, sceneRef]);
 
 	useEffect(() => {
-		if (!isMobile || !cam.current) return;
+		const handleResize = () => {
+			if (cam.current) {
+				cam.current.aspect = window.innerWidth / window.innerHeight;
+				cam.current.updateProjectionMatrix();
+			}
+		};
+		window.addEventListener("resize", handleResize);
+		return () => window.removeEventListener("resize", handleResize);
+	}, []);
+
+	useEffect(() => {
+		if (!isMobile() || !cam.current) return;
 		let lastX = 0,
 			lastY = 0;
 
 		const handleTouchMove = (e: TouchEvent) => {
 			e.preventDefault();
 			if (e.touches.length === 1) {
+				const MAX_PITCH = THREE.MathUtils.degToRad(70); // ~70 degrees
+				const MIN_PITCH = -MAX_PITCH;
 				const touch = e.touches[0];
 				const dx = touch.clientX - lastX;
 				const dy = touch.clientY - lastY;
-				cam.current.rotation.y -= dx * 0.002;
-				cam.current.rotation.x -= dy * 0.002;
+				cam.current.rotation.y -= dx * 0.003;
+				cam.current.rotation.x -= dy * 0.003;
 				lastX = touch.clientX;
 				lastY = touch.clientY;
+				// clamp pitch - do not allow user to turn the camera upside down
+				cam.current.rotation.x = Math.max(
+					MIN_PITCH,
+					Math.min(MAX_PITCH, cam.current.rotation.x)
+				);
 			}
 		};
 
@@ -224,7 +259,7 @@ export default function Player({
 	}, []);
 
 	return (
-		<group ref={ref} position={[0, 1.6, 8]}>
+		<group ref={ref} position={[0, 1.5, 8]}>
 			<PerspectiveCamera ref={cam} makeDefault fov={75}>
 				{/* Crosshair group */}
 				<group position={[0, 0, -1]}>

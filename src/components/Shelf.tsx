@@ -1,5 +1,5 @@
 // Shelf.tsx
-import React, { useMemo } from "react";
+import React, { Suspense, useMemo } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
 import { useCompoundBody } from "@react-three/cannon";
@@ -104,10 +104,17 @@ export default function Shelf({
 
 	return (
 		<group ref={ref}>
-			<mesh geometry={shelfGeometry} castShadow receiveShadow>
-				<meshStandardMaterial map={woodTexture} roughness={0.6} />
-			</mesh>
-			{products}
+			<Suspense fallback={null}>
+				<mesh
+					geometry={shelfGeometry}
+					castShadow
+					receiveShadow
+					userData={{ isShelf: true }}
+				>
+					<meshStandardMaterial map={woodTexture} roughness={0.6} />
+				</mesh>
+				{products}
+			</Suspense>
 		</group>
 	);
 }

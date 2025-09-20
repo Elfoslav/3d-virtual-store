@@ -2,6 +2,7 @@ import { useBox } from "@react-three/cannon";
 import * as THREE from "three";
 import { PRODUCT_DIMENSIONS } from "../lib/consts";
 import { useTexture } from "@react-three/drei";
+import { Suspense } from "react";
 
 type ProductProps = {
 	position: [number, number, number];
@@ -20,7 +21,6 @@ export default function Product({
 	photoUrl,
 	usePhysics = true,
 }: ProductProps) {
-	// const [texture, setTexture] = useState<THREE.Texture | null>(null);
 	const fallbackTexture = "/textures/wood.jpeg";
 	const texture = useTexture(photoUrl || fallbackTexture);
 
@@ -36,24 +36,26 @@ export default function Product({
 	}));
 
 	return (
-		<mesh
-			ref={ref}
-			position={position}
-			userData={{ productName: name }}
-			renderOrder={1}
-			castShadow
-			receiveShadow
-		>
-			<boxGeometry args={PRODUCT_DIMENSIONS} />
-			<meshStandardMaterial
-				color={!photoUrl ? color : undefined}
-				map={texture || undefined}
-				roughness={0.4}
-				metalness={0.3}
-				emissive={highlight ? 0xffff00 : 0x000000}
-				emissiveIntensity={highlight ? 0.4 : 0}
-				side={THREE.FrontSide}
-			/>
-		</mesh>
+		<Suspense fallback={null}>
+			<mesh
+				ref={ref}
+				position={position}
+				userData={{ productName: name }}
+				renderOrder={1}
+				castShadow
+				receiveShadow
+			>
+				<boxGeometry args={PRODUCT_DIMENSIONS} />
+				<meshStandardMaterial
+					color={!photoUrl ? color : undefined}
+					map={texture || undefined}
+					roughness={0.4}
+					metalness={0.3}
+					emissive={highlight ? 0xffff00 : 0x000000}
+					emissiveIntensity={highlight ? 0.4 : 0}
+					side={THREE.FrontSide}
+				/>
+			</mesh>
+		</Suspense>
 	);
 }

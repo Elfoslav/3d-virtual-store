@@ -1,7 +1,7 @@
-import React from "react";
+import React, { Suspense } from "react";
 import * as THREE from "three";
-import Shelf from "./Shelf";
 import { SHELF_SIZE, MAP_SCALE } from "../lib/consts";
+const Shelf = React.lazy(() => import("./Shelf"));
 
 type Props = {
 	sceneRef?: React.RefObject<THREE.Group | null>;
@@ -26,12 +26,17 @@ export default function ShelvesGroup({ sceneRef }: Props) {
 					const x = (colIndex - Math.floor(COLUMNS / 2)) * COLUMN_SPACING;
 					const z = START_Z - rowIndex * ROW_SPACING;
 					return (
-						<Shelf
+						<Suspense
 							key={`shelf-${rowIndex}-${colIndex}`}
-							position={[x, 0, z]}
-							rowIndex={rowIndex}
-							colIndex={colIndex}
-						/>
+							fallback={null} // optional: could show a placeholder mesh
+						>
+							<Shelf
+								key={`shelf-${rowIndex}-${colIndex}`}
+								position={[x, 0, z]}
+								rowIndex={rowIndex}
+								colIndex={colIndex}
+							/>
+						</Suspense>
 					);
 				})
 			)}

@@ -1,8 +1,7 @@
-// App.tsx
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
-import { Debug, Physics } from "@react-three/cannon";
+import { Physics } from "@react-three/cannon";
 import { SoftShadows } from "@react-three/drei";
 import { EffectComposer, SSAO, Bloom } from "@react-three/postprocessing";
 import { isMobile } from "./lib/functions";
@@ -13,6 +12,7 @@ import Player from "./components/Player";
 import Roof from "./components/Roof";
 import { WALL_OFFSET, WALL_POSITION_Y } from "./lib/consts";
 import ShelvesGroup from "./components/ShelvesGroup";
+import { Loader } from "./components/Loader";
 
 // ---------- CartItem ----------
 type CartItem = { name: string; count: number };
@@ -122,14 +122,17 @@ export default function App() {
 
 			{/* 3D Scene */}
 			<Canvas
+				style={{ width: "100vw", height: "100vh" }}
 				shadows
 				gl={{ antialias: true }}
 				camera={{ fov: 75, near: 0.1, far: 100 }}
-				onCreated={({ gl }) => {
+				onCreated={({ gl, camera }) => {
 					gl.shadowMap.enabled = true;
 					gl.shadowMap.type = THREE.PCFSoftShadowMap;
 					gl.toneMapping = THREE.ACESFilmicToneMapping;
 					gl.toneMappingExposure = 1.1;
+					gl.setSize(window.innerWidth, window.innerHeight);
+					camera.updateProjectionMatrix();
 				}}
 			>
 				<SoftShadows size={25} samples={8} focus={0.5} />
@@ -154,24 +157,26 @@ export default function App() {
 					/>
 
 					<group ref={sceneRef}>
-						<Roof />
-						<Floor />
+						<Suspense fallback={<Loader />}>
+							<Roof />
+							<Floor />
 
-						{/* Front wall */}
-						<Wall position={[0, WALL_POSITION_Y, -WALL_OFFSET]} />
-						{/* Back wall */}
-						<Wall position={[0, WALL_POSITION_Y, WALL_OFFSET]} />
-						{/* Left wall */}
-						<Wall
-							position={[-WALL_OFFSET, WALL_POSITION_Y, 0]}
-							rotation={[0, Math.PI / 2, 0]}
-						/>
-						{/* Right wall */}
-						<Wall
-							position={[WALL_OFFSET, WALL_POSITION_Y, 0]}
-							rotation={[0, Math.PI / 2, 0]}
-						/>
-						<ShelvesGroup />
+							{/* Front wall */}
+							<Wall position={[0, WALL_POSITION_Y, -WALL_OFFSET]} />
+							{/* Back wall */}
+							<Wall position={[0, WALL_POSITION_Y, WALL_OFFSET]} />
+							{/* Left wall */}
+							<Wall
+								position={[-WALL_OFFSET, WALL_POSITION_Y, 0]}
+								rotation={[0, Math.PI / 2, 0]}
+							/>
+							{/* Right wall */}
+							<Wall
+								position={[WALL_OFFSET, WALL_POSITION_Y, 0]}
+								rotation={[0, Math.PI / 2, 0]}
+							/>
+							<ShelvesGroup />
+						</Suspense>
 					</group>
 
 					<EffectComposer
