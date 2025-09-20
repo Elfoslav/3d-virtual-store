@@ -27,6 +27,8 @@ export default function App() {
 	const sceneRef = useRef<THREE.Group>(null);
 	const canvasRef = useRef<HTMLDivElement>(null);
 	const focusedRef = useRef<string | null>(null);
+	const [showOverlay, setShowOverlay] = useState(true);
+	const [loaded, setLoaded] = useState(false);
 
 	const handlePick = (productName: string) => {
 		setCart((prev) => {
@@ -51,6 +53,14 @@ export default function App() {
 	const onEmptyCart = (e: React.SyntheticEvent) => {
 		e.preventDefault();
 		setCart([]);
+	};
+
+	const handleLoaded = () => {
+		setLoaded(true);
+		console.log("loaded", loaded);
+		setTimeout(() => {
+			setShowOverlay(false);
+		}, 1300);
 	};
 
 	useEffect(() => {
@@ -136,30 +146,30 @@ export default function App() {
 					camera.updateProjectionMatrix();
 				}}
 			>
-				<TextureProvider>
-					<SoftShadows size={25} samples={8} focus={0.5} />
-					<ambientLight intensity={0.4} />
-					<hemisphereLight groundColor={0x444444} intensity={0.6} />
-					<directionalLight
-						position={[10, 10, 5]}
-						intensity={1.2}
-						castShadow
-						shadow-mapSize-width={1024}
-						shadow-mapSize-height={1024}
-						shadow-camera-near={0.5}
-						shadow-camera-far={30}
-					/>
-					<Physics gravity={[0, -9.81, 0]} iterations={10}>
-						<Player
-							onPick={handlePick}
-							sceneRef={sceneRef}
-							mobileMove={mobileMove}
-							focusedRef={focusedRef}
-							setFocusedProduct={setFocusedProduct}
+				<Suspense fallback={<Loader onLoaded={handleLoaded} />}>
+					<TextureProvider>
+						<SoftShadows size={25} samples={8} focus={0.5} />
+						<ambientLight intensity={0.4} />
+						<hemisphereLight groundColor={0x444444} intensity={0.6} />
+						<directionalLight
+							position={[10, 10, 5]}
+							intensity={1.2}
+							castShadow
+							shadow-mapSize-width={1024}
+							shadow-mapSize-height={1024}
+							shadow-camera-near={0.5}
+							shadow-camera-far={30}
 						/>
+						<Physics gravity={[0, -9.81, 0]} iterations={10}>
+							<Player
+								onPick={handlePick}
+								sceneRef={sceneRef}
+								mobileMove={mobileMove}
+								focusedRef={focusedRef}
+								setFocusedProduct={setFocusedProduct}
+							/>
 
-						<group ref={sceneRef}>
-							<Suspense fallback={<Loader />}>
+							<group ref={sceneRef}>
 								<Roof />
 								<Floor />
 
@@ -178,24 +188,48 @@ export default function App() {
 									rotation={[0, Math.PI / 2, 0]}
 								/>
 								<ShelvesGroup />
-							</Suspense>
-						</group>
+							</group>
 
-						<EffectComposer
-							enableNormalPass
-							multisampling={0}
-							resolutionScale={0.75}
-						>
-							<SSAO samples={8} radius={0.05} intensity={20} />
-							<Bloom
-								luminanceThreshold={0.3}
-								luminanceSmoothing={0.9}
-								height={300}
-							/>
-						</EffectComposer>
-					</Physics>
-				</TextureProvider>
+							<EffectComposer
+								enableNormalPass
+								multisampling={0}
+								resolutionScale={0.75}
+							>
+								<SSAO samples={8} radius={0.05} intensity={20} />
+								<Bloom
+									luminanceThreshold={0.3}
+									luminanceSmoothing={0.9}
+									height={300}
+								/>
+							</EffectComposer>
+						</Physics>
+					</TextureProvider>
+				</Suspense>
 			</Canvas>
+
+			{/* Fade-in overlay */}
+			{showOverlay && (
+				<div
+					style={{
+						position: "absolute",
+						top: 0,
+						left: 0,
+						width: "100%",
+						height: "100%",
+						background: "#000",
+						display: "flex",
+						justifyContent: "center",
+						alignItems: "center",
+						color: "#fff",
+						fontSize: "2rem",
+						fontWeight: 600,
+						pointerEvents: "none",
+						transition: "opacity 1s ease",
+						opacity: loaded ? 0 : 1,
+						zIndex: 100,
+					}}
+				></div>
+			)}
 		</div>
 	);
 }

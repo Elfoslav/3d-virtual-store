@@ -1,13 +1,19 @@
 import { Html, useProgress } from "@react-three/drei";
 
-export function Loader() {
+export function Loader({ onLoaded }: { onLoaded: () => void }) {
 	const { progress } = useProgress(); // progress 0–100
+
+	if (progress === 100) {
+		setTimeout(() => onLoaded(), 100); // slight delay to allow final render
+	}
+
 	return (
 		<Html center>
 			<div
 				style={{
-					color: "white",
-					fontSize: "1.5rem",
+					color: "#fff",
+					fontSize: "2rem",
+					fontWeight: 600,
 					textAlign: "center",
 				}}
 			>
