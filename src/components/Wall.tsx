@@ -1,7 +1,6 @@
-import * as THREE from "three";
-import { useTexture } from "@react-three/drei";
 import { useBox } from "@react-three/cannon";
 import { WALL_DIMENSIONS } from "../lib/consts";
+import { useTextures } from "../lib/context/TextureContext";
 
 export default function Wall({
 	position,
@@ -10,11 +9,7 @@ export default function Wall({
 	position: [number, number, number];
 	rotation?: [number, number, number];
 }) {
-	const texture = useTexture("/textures/wall.jpeg");
-	texture.anisotropy = 4;
-	texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-	texture.repeat.set(5, 1);
-
+	const { wall: texture } = useTextures();
 	const [ref] = useBox(() => ({
 		args: WALL_DIMENSIONS,
 		position,

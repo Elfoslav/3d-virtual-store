@@ -57,7 +57,6 @@ export default function App() {
 
 	const handleLoaded = () => {
 		setLoaded(true);
-		console.log("loaded", loaded);
 		setTimeout(() => {
 			setShowOverlay(false);
 		}, 1300);
