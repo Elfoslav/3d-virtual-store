@@ -24,7 +24,11 @@ export default function Product({
 	// Physics body
 	const [ref] = useBox(() => ({
 		args: PRODUCT_DIMENSIONS,
-		position,
+		position: [
+			position[0],
+			position[1] + 0.01, // tiny offset so it doesn't start inside the shelf
+			position[2],
+		],
 		mass: usePhysics ? 1 : 0,
 		userData: { productName: name },
 		enabled: usePhysics,

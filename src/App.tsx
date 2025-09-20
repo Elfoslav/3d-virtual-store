@@ -32,7 +32,7 @@ export default function App() {
 	const loader = new TextureLoader();
 
 	const textures = {
-		floor: loader.load("/textures/floor.jpg"),
+		floor: loader.load("/textures/floor-marble.jpg"),
 		shelf: loader.load("/textures/wood-light.jpeg"),
 		products: [
 			loader.load("/products-images/bg-original.webp"),
@@ -45,7 +45,7 @@ export default function App() {
 
 	// Set repeat if needed
 	textures.floor.wrapS = textures.floor.wrapT = THREE.RepeatWrapping;
-	textures.floor.repeat.set(35, 35);
+	textures.floor.repeat.set(45, 45);
 
 	const handlePick = (productName: string) => {
 		setCart((prev) => {

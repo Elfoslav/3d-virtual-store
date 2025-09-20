@@ -112,7 +112,10 @@ export default function Shelf({
 		const result = [];
 		for (let shelfIndex = 0; shelfIndex < 3; shelfIndex++) {
 			const y =
-				shelfIndex * shelfSpacing + SHELF_THICKNESS / 2 + PRODUCT_SIZE / 2;
+				shelfIndex * shelfSpacing +
+				SHELF_THICKNESS / 2 +
+				PRODUCT_SIZE / 2 +
+				0.01;
 			for (let i = 0; i < productCountPerShelf; i++) {
 				const x = -w / 2 + (i + 0.5) * (w / productCountPerShelf);
 				const z = d / 2 - PRODUCT_SIZE / 2 - 0.01;
@@ -124,7 +127,7 @@ export default function Shelf({
 						position={[x, y, z]}
 						name={`Product ${rowIndex}-${colIndex}-${shelfIndex}-${i}`}
 						color={`hsl(${(i * 60) % 360}, 80%, 50%)`}
-						usePhysics={true}
+						usePhysics={false}
 					/>
 				);
 			}
