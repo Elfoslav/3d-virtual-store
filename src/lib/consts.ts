@@ -1,20 +1,24 @@
 // Map scaling
 export const MAP_SCALE = 0.8;
+export const MAP_WIDTH = 35;
+export const MAP_LENGTH = 25;
 
 // Floor
-export const FLOOR_DIMENSIONS: [number, number] = [50 * MAP_SCALE, 50 * MAP_SCALE];
+export const FLOOR_DIMENSIONS: [number, number] = [MAP_WIDTH * MAP_SCALE, MAP_LENGTH * MAP_SCALE];
 
 // Walls
 export const WALL_WIDTH = 50 * MAP_SCALE;
 export const WALL_HEIGHT = 5 * MAP_SCALE;
 export const WALL_DEPTH = 0.5 * MAP_SCALE;
 export const WALL_DIMENSIONS: [number, number, number] = [WALL_WIDTH, WALL_HEIGHT, WALL_DEPTH];
-export const WALL_OFFSET = 25 * MAP_SCALE;
+// Position walls at edges of floor
 export const WALL_POSITION_Y = WALL_HEIGHT / 2;
+export const WALL_OFFSET_X = FLOOR_DIMENSIONS[0] / 2; // left/right walls
+export const WALL_OFFSET_Z = FLOOR_DIMENSIONS[1] / 2; // front/back walls
 
 // Roof
-export const ROOF_SIZE: [number, number] = [50 * MAP_SCALE, 50 * MAP_SCALE];
-export const ROOF_HEIGHT = 4;
+export const ROOF_SIZE: [number, number] = FLOOR_DIMENSIONS;
+export const ROOF_HEIGHT = WALL_HEIGHT;
 
 // Shelf
 const SHELF_BASE_SIZE: [number, number, number] = [3.6, 2, 0.6]; // width, height, depth

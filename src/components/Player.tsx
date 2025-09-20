@@ -223,23 +223,32 @@ export default function Player({
 		let lastX = 0,
 			lastY = 0;
 
+		// Outside touch handler
+		let pitch = 0;
+		let yaw = 0;
+
+		// Touch handler
 		const handleTouchMove = (e: TouchEvent) => {
 			e.preventDefault();
 			if (e.touches.length === 1) {
-				const MAX_PITCH = THREE.MathUtils.degToRad(70); // ~70 degrees
+				const MAX_PITCH = THREE.MathUtils.degToRad(70);
 				const MIN_PITCH = -MAX_PITCH;
 				const touch = e.touches[0];
 				const dx = touch.clientX - lastX;
 				const dy = touch.clientY - lastY;
-				cam.current.rotation.y -= dx * 0.003;
-				cam.current.rotation.x -= dy * 0.003;
+
 				lastX = touch.clientX;
 				lastY = touch.clientY;
-				// clamp pitch - do not allow user to turn the camera upside down
-				cam.current.rotation.x = Math.max(
-					MIN_PITCH,
-					Math.min(MAX_PITCH, cam.current.rotation.x)
-				);
+
+				// Update yaw and pitch separately
+				yaw -= dx * 0.003; // horizontal rotation
+				pitch -= dy * 0.003; // vertical rotation
+
+				// Clamp pitch
+				pitch = Math.max(MIN_PITCH, Math.min(MAX_PITCH, pitch));
+
+				// Apply to camera
+				cam.current.rotation.set(pitch, yaw, 0, "YXZ"); // rotate in local space
 			}
 		};
 

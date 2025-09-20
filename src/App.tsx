@@ -10,7 +10,7 @@ import Floor from "./components/Floor";
 import Wall from "./components/Wall";
 import Player from "./components/Player";
 import Roof from "./components/Roof";
-import { WALL_OFFSET, WALL_POSITION_Y } from "./lib/consts";
+import { WALL_OFFSET_X, WALL_OFFSET_Z, WALL_POSITION_Y } from "./lib/consts";
 import ShelvesGroup from "./components/ShelvesGroup";
 import { Loader } from "./components/Loader";
 import { TextureProvider } from "./lib/context/TextureContext";
@@ -164,17 +164,17 @@ export default function App() {
 								<Floor />
 
 								{/* Front wall */}
-								<Wall position={[0, WALL_POSITION_Y, -WALL_OFFSET]} />
+								<Wall position={[0, WALL_POSITION_Y, -WALL_OFFSET_Z]} />
 								{/* Back wall */}
-								<Wall position={[0, WALL_POSITION_Y, WALL_OFFSET]} />
+								<Wall position={[0, WALL_POSITION_Y, WALL_OFFSET_Z]} />
 								{/* Left wall */}
 								<Wall
-									position={[-WALL_OFFSET, WALL_POSITION_Y, 0]}
+									position={[-WALL_OFFSET_X, WALL_POSITION_Y, 0]}
 									rotation={[0, Math.PI / 2, 0]}
 								/>
 								{/* Right wall */}
 								<Wall
-									position={[WALL_OFFSET, WALL_POSITION_Y, 0]}
+									position={[WALL_OFFSET_X, WALL_POSITION_Y, 0]}
 									rotation={[0, Math.PI / 2, 0]}
 								/>
 								<ShelvesGroup />
