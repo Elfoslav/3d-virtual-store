@@ -1,14 +1,10 @@
 import { usePlane } from "@react-three/cannon";
-import { useTexture } from "@react-three/drei";
-import * as THREE from "three";
 import { FLOOR_DIMENSIONS } from "../lib/consts";
 import { Suspense } from "react";
+import { useTextures } from "../lib/context/TextureContext";
 
 export default function Floor() {
-	const texture = useTexture("/textures/floor-marble.jpg");
-	texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-	texture.repeat.set(35, 35);
-
+	const { floor: texture } = useTextures();
 	const [ref] = usePlane(() => ({
 		rotation: [-Math.PI / 2, 0, 0],
 		type: "Static",

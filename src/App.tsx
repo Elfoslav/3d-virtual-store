@@ -13,6 +13,8 @@ import Roof from "./components/Roof";
 import { WALL_OFFSET, WALL_POSITION_Y } from "./lib/consts";
 import ShelvesGroup from "./components/ShelvesGroup";
 import { Loader } from "./components/Loader";
+import { TextureLoader } from "three";
+import TextureContext from "./lib/context/TextureContext";
 
 // ---------- CartItem ----------
 type CartItem = { name: string; count: number };
@@ -26,6 +28,24 @@ export default function App() {
 	const sceneRef = useRef<THREE.Group>(null);
 	const canvasRef = useRef<HTMLDivElement>(null);
 	const focusedRef = useRef<string | null>(null);
+
+	const loader = new TextureLoader();
+
+	const textures = {
+		floor: loader.load("/textures/floor.jpg"),
+		shelf: loader.load("/textures/wood-light.jpeg"),
+		products: [
+			loader.load("/products-images/bg-original.webp"),
+			loader.load("/products-images/gita-02.jpg"),
+			loader.load("/products-images/bg-original.webp"),
+			loader.load("/products-images/gita-02.jpg"),
+			loader.load("/products-images/bg-original.webp"),
+		],
+	};
+
+	// Set repeat if needed
+	textures.floor.wrapS = textures.floor.wrapT = THREE.RepeatWrapping;
+	textures.floor.repeat.set(35, 35);
 
 	const handlePick = (productName: string) => {
 		setCart((prev) => {
@@ -59,140 +79,142 @@ export default function App() {
 	}, []);
 
 	return (
-		<div
-			ref={canvasRef}
-			style={{ width: "100vw", height: "100vh" }}
-			onClick={handleCanvasClick}
-		>
-			{/* Cart */}
+		<TextureContext.Provider value={textures}>
 			<div
-				style={{
-					position: "absolute",
-					top: 10,
-					right: 10,
-					zIndex: 10,
-					background: "white",
-					padding: "10px",
-					borderRadius: "8px",
-				}}
+				ref={canvasRef}
+				style={{ width: "100vw", height: "100vh" }}
+				onClick={handleCanvasClick}
 			>
-				<h3>🛒 Cart</h3>
-				{cart.length === 0 ? (
-					<p>No items</p>
-				) : (
-					<>
-						<ul style={{ paddingLeft: "20px" }}>
-							{cart.map((item, i) => (
-								<li key={i}>
-									{item.name} ({item.count}x)
-								</li>
-							))}
-						</ul>
-						<div style={{ textAlign: "center" }}>
-							<button onClick={onEmptyCart} onTouchEnd={onEmptyCart}>
-								Clear
-							</button>
-						</div>
-					</>
-				)}
-			</div>
-
-			{/* Focused Product Overlay Text */}
-			{focusedRef.current && (
+				{/* Cart */}
 				<div
 					style={{
 						position: "absolute",
-						top: "46%",
-						left: "50%",
-						transform: "translate(-50%, -50%)",
-						color: "yellow",
-						fontWeight: "bold",
-						padding: "4px 8px",
-						backgroundColor: "rgba(0,0,0,0.5)",
-						borderRadius: "4px",
-						pointerEvents: "none",
+						top: 10,
+						right: 10,
 						zIndex: 10,
+						background: "white",
+						padding: "10px",
+						borderRadius: "8px",
 					}}
 				>
-					{focusedRef.current}
+					<h3>🛒 Cart</h3>
+					{cart.length === 0 ? (
+						<p>No items</p>
+					) : (
+						<>
+							<ul style={{ paddingLeft: "20px" }}>
+								{cart.map((item, i) => (
+									<li key={i}>
+										{item.name} ({item.count}x)
+									</li>
+								))}
+							</ul>
+							<div style={{ textAlign: "center" }}>
+								<button onClick={onEmptyCart} onTouchEnd={onEmptyCart}>
+									Clear
+								</button>
+							</div>
+						</>
+					)}
 				</div>
-			)}
 
-			{isMobile() && <MobileControls setMove={setMobileMove} />}
-
-			{/* 3D Scene */}
-			<Canvas
-				style={{ width: "100vw", height: "100vh" }}
-				shadows
-				gl={{ antialias: true }}
-				camera={{ fov: 75, near: 0.1, far: 100 }}
-				onCreated={({ gl, camera }) => {
-					gl.shadowMap.enabled = true;
-					gl.shadowMap.type = THREE.PCFSoftShadowMap;
-					gl.toneMapping = THREE.ACESFilmicToneMapping;
-					gl.toneMappingExposure = 1.1;
-					gl.setSize(window.innerWidth, window.innerHeight);
-					camera.updateProjectionMatrix();
-				}}
-			>
-				<SoftShadows size={25} samples={8} focus={0.5} />
-				<ambientLight intensity={0.4} />
-				<hemisphereLight groundColor={0x444444} intensity={0.6} />
-				<directionalLight
-					position={[10, 10, 5]}
-					intensity={1.2}
-					castShadow
-					shadow-mapSize-width={1024}
-					shadow-mapSize-height={1024}
-					shadow-camera-near={0.5}
-					shadow-camera-far={30}
-				/>
-				<Physics gravity={[0, -9.81, 0]} iterations={10}>
-					<Player
-						onPick={handlePick}
-						sceneRef={sceneRef}
-						mobileMove={mobileMove}
-						focusedRef={focusedRef}
-						setFocusedProduct={setFocusedProduct}
-					/>
-
-					<group ref={sceneRef}>
-						<Suspense fallback={<Loader />}>
-							<Roof />
-							<Floor />
-
-							{/* Front wall */}
-							<Wall position={[0, WALL_POSITION_Y, -WALL_OFFSET]} />
-							{/* Back wall */}
-							<Wall position={[0, WALL_POSITION_Y, WALL_OFFSET]} />
-							{/* Left wall */}
-							<Wall
-								position={[-WALL_OFFSET, WALL_POSITION_Y, 0]}
-								rotation={[0, Math.PI / 2, 0]}
-							/>
-							{/* Right wall */}
-							<Wall
-								position={[WALL_OFFSET, WALL_POSITION_Y, 0]}
-								rotation={[0, Math.PI / 2, 0]}
-							/>
-							<ShelvesGroup />
-						</Suspense>
-					</group>
-
-					<EffectComposer
-						enableNormalPass
-						multisampling={0}
-						resolutionScale={0.75}
+				{/* Focused Product Overlay Text */}
+				{focusedRef.current && (
+					<div
+						style={{
+							position: "absolute",
+							top: "46%",
+							left: "50%",
+							transform: "translate(-50%, -50%)",
+							color: "yellow",
+							fontWeight: "bold",
+							padding: "4px 8px",
+							backgroundColor: "rgba(0,0,0,0.5)",
+							borderRadius: "4px",
+							pointerEvents: "none",
+							zIndex: 10,
+						}}
 					>
-						<SSAO samples={8} radius={0.05} intensity={20} />
-						<Bloom
-							luminanceThreshold={0.3}
-							luminanceSmoothing={0.9}
-							height={300}
+						{focusedRef.current}
+					</div>
+				)}
+
+				{isMobile() && <MobileControls setMove={setMobileMove} />}
+
+				{/* 3D Scene */}
+				<Canvas
+					style={{ width: "100vw", height: "100vh" }}
+					shadows
+					gl={{ antialias: true }}
+					camera={{ fov: 75, near: 0.1, far: 100 }}
+					onCreated={({ gl, camera }) => {
+						gl.shadowMap.enabled = true;
+						gl.shadowMap.type = THREE.PCFSoftShadowMap;
+						gl.toneMapping = THREE.ACESFilmicToneMapping;
+						gl.toneMappingExposure = 1.1;
+						gl.setSize(window.innerWidth, window.innerHeight);
+						camera.updateProjectionMatrix();
+					}}
+				>
+					<SoftShadows size={25} samples={8} focus={0.5} />
+					<ambientLight intensity={0.4} />
+					<hemisphereLight groundColor={0x444444} intensity={0.6} />
+					<directionalLight
+						position={[10, 10, 5]}
+						intensity={1.2}
+						castShadow
+						shadow-mapSize-width={1024}
+						shadow-mapSize-height={1024}
+						shadow-camera-near={0.5}
+						shadow-camera-far={30}
+					/>
+					<Physics gravity={[0, -9.81, 0]} iterations={10}>
+						<Player
+							onPick={handlePick}
+							sceneRef={sceneRef}
+							mobileMove={mobileMove}
+							focusedRef={focusedRef}
+							setFocusedProduct={setFocusedProduct}
 						/>
-					</EffectComposer>
-				</Physics>
-			</Canvas>
-		</div>
+
+						<group ref={sceneRef}>
+							<Suspense fallback={<Loader />}>
+								<Roof />
+								<Floor />
+
+								{/* Front wall */}
+								<Wall position={[0, WALL_POSITION_Y, -WALL_OFFSET]} />
+								{/* Back wall */}
+								<Wall position={[0, WALL_POSITION_Y, WALL_OFFSET]} />
+								{/* Left wall */}
+								<Wall
+									position={[-WALL_OFFSET, WALL_POSITION_Y, 0]}
+									rotation={[0, Math.PI / 2, 0]}
+								/>
+								{/* Right wall */}
+								<Wall
+									position={[WALL_OFFSET, WALL_POSITION_Y, 0]}
+									rotation={[0, Math.PI / 2, 0]}
+								/>
+								<ShelvesGroup />
+							</Suspense>
+						</group>
+
+						<EffectComposer
+							enableNormalPass
+							multisampling={0}
+							resolutionScale={0.75}
+						>
+							<SSAO samples={8} radius={0.05} intensity={20} />
+							<Bloom
+								luminanceThreshold={0.3}
+								luminanceSmoothing={0.9}
+								height={300}
+							/>
+						</EffectComposer>
+					</Physics>
+				</Canvas>
+			</div>
+		</TextureContext.Provider>
 	);
 }

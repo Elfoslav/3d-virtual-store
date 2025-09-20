@@ -1,10 +1,10 @@
 import { useBox } from "@react-three/cannon";
 import * as THREE from "three";
 import { PRODUCT_DIMENSIONS } from "../lib/consts";
-import { useTexture } from "@react-three/drei";
 import { Suspense } from "react";
 
 type ProductProps = {
+	texture: THREE.Texture;
 	position: [number, number, number];
 	color?: string;
 	name: string;
@@ -14,16 +14,13 @@ type ProductProps = {
 };
 
 export default function Product({
+	texture,
 	position,
 	color = "white",
 	name,
 	highlight,
-	photoUrl,
 	usePhysics = true,
 }: ProductProps) {
-	const fallbackTexture = "/textures/wood.jpeg";
-	const texture = useTexture(photoUrl || fallbackTexture);
-
 	// Physics body
 	const [ref] = useBox(() => ({
 		args: PRODUCT_DIMENSIONS,
@@ -47,7 +44,7 @@ export default function Product({
 			>
 				<boxGeometry args={PRODUCT_DIMENSIONS} />
 				<meshStandardMaterial
-					color={!photoUrl ? color : undefined}
+					color={!texture ? color : undefined}
 					map={texture || undefined}
 					roughness={0.4}
 					metalness={0.3}

@@ -25,7 +25,7 @@ export default function Player({
 	const [ref, api] = useBox(() => ({
 		mass: 1,
 		args: [0.5, 2.2, 0.5],
-		position: [0, 1, 5],
+		position: [0, 1.1, 6],
 		linearDamping: 0.8, // smaller damping → slides faster
 		angularDamping: 1,
 		fixedRotation: true,
@@ -259,8 +259,8 @@ export default function Player({
 	}, []);
 
 	return (
-		<group ref={ref} position={[0, 1.5, 8]}>
-			<PerspectiveCamera ref={cam} makeDefault fov={75}>
+		<group ref={ref} position={[0, 0, 8]}>
+			<PerspectiveCamera ref={cam} makeDefault fov={75} position={[0, 0, 0]}>
 				{/* Crosshair group */}
 				<group position={[0, 0, -1]}>
 					{/* Vertical line */}
