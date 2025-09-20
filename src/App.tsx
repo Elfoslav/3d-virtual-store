@@ -30,6 +30,10 @@ export default function App() {
 	const [showOverlay, setShowOverlay] = useState(true);
 	const [loaded, setLoaded] = useState(false);
 
+	useEffect(() => {
+		document.title = "3D virtual store";
+	}, []);
+
 	const handlePick = (productName: string) => {
 		setCart((prev) => {
 			const existing = prev.find((p) => p.name === productName);
