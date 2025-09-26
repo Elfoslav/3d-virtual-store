@@ -1,91 +1,49 @@
-// Shelf.tsx
-import React, { Suspense, useMemo } from "react";
+import { Suspense, useMemo, JSX } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
 import { useCompoundBody } from "@react-three/cannon";
 import { SHELF_SIZE, SHELF_THICKNESS, PRODUCT_SIZE } from "../lib/consts";
 import Product from "./Product";
 import { useTextures } from "../lib/context/TextureContext";
+import { Product as ProductType } from "../lib/models";
 
 type ShelfProps = {
+	products: ProductType[];
 	position?: [number, number, number];
-	productCountPerShelf?: number;
 	rowIndex?: number;
 	colIndex?: number;
 };
 
 export default function Shelf({
+	products,
 	position = [0, 0, 0],
-	productCountPerShelf = 5,
 	rowIndex = 0,
 	colIndex = 0,
 }: ShelfProps) {
-	const { shelf: texture, products: productsTextures } = useTextures();
+	const { shelf: texture } = useTextures();
 	const [w, h, d] = SHELF_SIZE;
 	const shelfSpacing = (h - SHELF_THICKNESS) / 3;
-
-	// --- physics body ---
-	const COLLISION_PADDING = 0.1; // 10cm extra on each dimension
+	const textureLoader = new THREE.TextureLoader();
 
 	// --- physics body ---
 	const [ref] = useCompoundBody(() => ({
 		mass: 0,
 		position,
 		shapes: [
+			{ type: "Box", args: [w, SHELF_THICKNESS, d], position: [0, 0, 0] },
 			{
 				type: "Box",
-				args: [
-					w + COLLISION_PADDING,
-					SHELF_THICKNESS + COLLISION_PADDING,
-					d + COLLISION_PADDING,
-				],
-				position: [0, 0, 0],
-			}, // bottom
-			{
-				type: "Box",
-				args: [
-					w + COLLISION_PADDING,
-					SHELF_THICKNESS + COLLISION_PADDING,
-					d + COLLISION_PADDING + 0.5,
-				],
+				args: [w, SHELF_THICKNESS, d],
 				position: [0, shelfSpacing, 0],
-			}, // middle
+			},
 			{
 				type: "Box",
-				args: [
-					w + COLLISION_PADDING,
-					SHELF_THICKNESS + COLLISION_PADDING,
-					d + COLLISION_PADDING,
-				],
+				args: [w, SHELF_THICKNESS, d],
 				position: [0, 2 * shelfSpacing, 0],
-			}, // top
-			{
-				type: "Box",
-				args: [
-					0.05 + COLLISION_PADDING,
-					h + COLLISION_PADDING,
-					d + COLLISION_PADDING,
-				],
-				position: [-w / 2, h / 2, 0],
-			}, // left
-			{
-				type: "Box",
-				args: [
-					0.05 + COLLISION_PADDING,
-					h + COLLISION_PADDING,
-					d + COLLISION_PADDING,
-				],
-				position: [w / 2, h / 2, 0],
-			}, // right
-			{
-				type: "Box",
-				args: [
-					w + COLLISION_PADDING,
-					h + COLLISION_PADDING,
-					0.05 + COLLISION_PADDING,
-				],
-				position: [0, h / 2, -d / 2],
-			}, // back
+			},
+			{ type: "Box", args: [0.05, h, d], position: [-w / 2, h / 2, 0] },
+			{ type: "Box", args: [0.05, h, d], position: [w / 2, h / 2, 0] },
+			{ type: "Box", args: [w, h, 0.05], position: [0, h / 2, -d / 2] },
 		],
 	}));
 
@@ -107,41 +65,36 @@ export default function Shelf({
 		return mergeGeometries(geoms, false);
 	}, [w, h, d, shelfSpacing]);
 
-	// --- products ---
-	const products = useMemo(() => {
-		const result = [];
+	// --- distribute given products ---
+	const renderedProducts = useMemo(() => {
+		const result: JSX.Element[] = [];
+		const productsPerLevel = Math.ceil(products.length / 3);
+
 		for (let shelfIndex = 0; shelfIndex < 3; shelfIndex++) {
-			const y =
-				shelfIndex * shelfSpacing +
-				SHELF_THICKNESS / 2 +
-				PRODUCT_SIZE / 2 +
-				0.01;
-			for (let i = 0; i < productCountPerShelf; i++) {
-				const x = -w / 2 + (i + 0.5) * (w / productCountPerShelf);
+			const y = shelfIndex * shelfSpacing + SHELF_THICKNESS + PRODUCT_SIZE / 2;
+			const start = shelfIndex * productsPerLevel;
+			const end = start + productsPerLevel;
+			const levelProducts = products.slice(start, end);
+
+			levelProducts.forEach((p, i) => {
+				const x = -w / 2 + (i + 0.5) * (w / productsPerLevel);
 				const z = d / 2 - PRODUCT_SIZE / 2 - 0.01;
-				// create a unique photo URL per shelf/product to avoid caching issues
+				const tex = p.photoUrl ? textureLoader.load(p.photoUrl) : undefined;
+
 				result.push(
 					<Product
-						texture={productsTextures[i]}
-						key={`product-${rowIndex}-${colIndex}-${shelfIndex}-${i}`}
+						key={`prod-${rowIndex}-${colIndex}-${shelfIndex}-${p.id}`}
+						texture={tex}
+						color={tex ? undefined : p.color ?? "white"}
 						position={[x, y, z]}
-						name={`Product ${rowIndex}-${colIndex}-${shelfIndex}-${i}`}
-						color={`hsl(${(i * 60) % 360}, 80%, 50%)`}
+						name={p.name}
 						usePhysics={false}
 					/>
 				);
-			}
+			});
 		}
 		return result;
-	}, [
-		w,
-		d,
-		shelfSpacing,
-		productCountPerShelf,
-		rowIndex,
-		colIndex,
-		productsTextures,
-	]);
+	}, [products, w, d, shelfSpacing, rowIndex, colIndex, textureLoader]);
 
 	return (
 		<group ref={ref}>
@@ -154,7 +107,7 @@ export default function Shelf({
 				>
 					<meshStandardMaterial map={texture} roughness={0.6} />
 				</mesh>
-				{products}
+				{renderedProducts}
 			</Suspense>
 		</group>
 	);

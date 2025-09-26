@@ -4,7 +4,7 @@ import { PRODUCT_DIMENSIONS } from "../lib/consts";
 import { Suspense } from "react";
 
 type ProductProps = {
-	texture: THREE.Texture;
+	texture?: THREE.Texture;
 	position: [number, number, number];
 	color?: string;
 	name: string;

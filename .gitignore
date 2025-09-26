@@ -8,8 +8,11 @@
 # testing
 /coverage
 
-# production
+# React create-app production
 /build
+
+# Vite production build
+/dist
 
 # misc
 .DS_Store
